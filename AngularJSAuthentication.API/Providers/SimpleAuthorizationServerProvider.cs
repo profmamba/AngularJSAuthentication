@@ -1,24 +1,26 @@
-﻿using AngularJSAuthentication.API.Entities;
-using Microsoft.AspNet.Identity.EntityFramework;
-using Microsoft.Owin.Security;
-using Microsoft.Owin.Security.OAuth;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Claims;
-using System.Threading.Tasks;
-using System.Web;
-
-namespace AngularJSAuthentication.API.Providers
+﻿namespace AngularJSAuthentication.API.Providers
 {
+    using Entities;
+    using Microsoft.Owin.Security;
+    using Microsoft.Owin.Security.OAuth;
+    using System.Collections.Generic;
+    using System.Security.Claims;
+    using System.Threading.Tasks;
+
     public class SimpleAuthorizationServerProvider : OAuthAuthorizationServerProvider
     {
+        private readonly AuthRepository authRepository;
+
+        public SimpleAuthorizationServerProvider(AuthRepository authRepository)
+        {
+            this.authRepository = authRepository;
+        }
+
         public override Task ValidateClientAuthentication(OAuthValidateClientAuthenticationContext context)
         {
-
-            string clientId = string.Empty;
-            string clientSecret = string.Empty;
-            Client client = null;
+            var clientId = default(string);
+            var clientSecret = default(string);
+            var client = default(Client);
 
             if (!context.TryGetBasicCredentials(out clientId, out clientSecret))
             {
@@ -27,21 +29,21 @@ namespace AngularJSAuthentication.API.Providers
 
             if (context.ClientId == null)
             {
-                //Remove the comments from the below line context.SetError, and invalidate context 
-                //if you want to force sending clientId/secrects once obtain access tokens. 
+                // Remove the comments from the below line context.SetError, and invalidate context 
+                // if you want to force sending clientId/secrects once obtain access tokens. 
                 context.Validated();
-                //context.SetError("invalid_clientId", "ClientId should be sent.");
+
+                // context.SetError("invalid_clientId", "ClientId should be sent.");
+
                 return Task.FromResult<object>(null);
             }
 
-            using (AuthRepository _repo = new AuthRepository())
-            {
-                client = _repo.FindClient(context.ClientId);
-            }
+            client = authRepository.FindClient(context.ClientId);
 
             if (client == null)
             {
                 context.SetError("invalid_clientId", string.Format("Client '{0}' is not registered in the system.", context.ClientId));
+
                 return Task.FromResult<object>(null);
             }
 
@@ -50,6 +52,7 @@ namespace AngularJSAuthentication.API.Providers
                 if (string.IsNullOrWhiteSpace(clientSecret))
                 {
                     context.SetError("invalid_clientId", "Client secret should be sent.");
+
                     return Task.FromResult<object>(null);
                 }
                 else
@@ -57,6 +60,7 @@ namespace AngularJSAuthentication.API.Providers
                     if (client.Secret != Helper.GetHash(clientSecret))
                     {
                         context.SetError("invalid_clientId", "Client secret is invalid.");
+
                         return Task.FromResult<object>(null);
                     }
                 }
@@ -65,6 +69,7 @@ namespace AngularJSAuthentication.API.Providers
             if (!client.Active)
             {
                 context.SetError("invalid_clientId", "Client is inactive.");
+
                 return Task.FromResult<object>(null);
             }
 
@@ -72,30 +77,28 @@ namespace AngularJSAuthentication.API.Providers
             context.OwinContext.Set<string>("as:clientRefreshTokenLifeTime", client.RefreshTokenLifeTime.ToString());
 
             context.Validated();
+
             return Task.FromResult<object>(null);
         }
 
         public override async Task GrantResourceOwnerCredentials(OAuthGrantResourceOwnerCredentialsContext context)
         {
-
             var allowedOrigin = context.OwinContext.Get<string>("as:clientAllowedOrigin");
 
             if (allowedOrigin == null) allowedOrigin = "*";
 
             context.OwinContext.Response.Headers.Add("Access-Control-Allow-Origin", new[] { allowedOrigin });
 
-            using (AuthRepository _repo = new AuthRepository())
-            {
-                IdentityUser user = await _repo.FindUser(context.UserName, context.Password);
+            var user = await authRepository.FindUser(context.UserName, context.Password);
 
-                if (user == null)
-                {
-                    context.SetError("invalid_grant", "The user name or password is incorrect.");
-                    return;
-                }
+            if (user == null)
+            {
+                context.SetError("invalid_grant", "The user name or password is incorrect.");
+                return;
             }
 
             var identity = new ClaimsIdentity(context.Options.AuthenticationType);
+
             identity.AddClaim(new Claim(ClaimTypes.Name, context.UserName));
             identity.AddClaim(new Claim("sub", context.UserName));
             identity.AddClaim(new Claim("role", "user"));
@@ -111,8 +114,8 @@ namespace AngularJSAuthentication.API.Providers
                 });
 
             var ticket = new AuthenticationTicket(identity, props);
-            context.Validated(ticket);
 
+            context.Validated(ticket);
         }
 
         public override Task GrantRefreshToken(OAuthGrantRefreshTokenContext context)
@@ -123,14 +126,17 @@ namespace AngularJSAuthentication.API.Providers
             if (originalClient != currentClient)
             {
                 context.SetError("invalid_clientId", "Refresh token is issued to a different clientId.");
+            
                 return Task.FromResult<object>(null);
             }
 
             // Change auth ticket for refresh token requests
             var newIdentity = new ClaimsIdentity(context.Ticket.Identity);
+
             newIdentity.AddClaim(new Claim("newClaim", "newValue"));
 
             var newTicket = new AuthenticationTicket(newIdentity, context.Ticket.Properties);
+
             context.Validated(newTicket);
 
             return Task.FromResult<object>(null);
@@ -145,6 +151,5 @@ namespace AngularJSAuthentication.API.Providers
 
             return Task.FromResult<object>(null);
         }
-
     }
 }

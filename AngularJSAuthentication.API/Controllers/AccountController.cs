@@ -1,47 +1,40 @@
-﻿using AngularJSAuthentication.API.Models;
-using Microsoft.AspNet.Identity;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Threading.Tasks;
-using System.Web;
-using System.Web.Http;
-
-namespace AngularJSAuthentication.API.Controllers
+﻿namespace AngularJSAuthentication.API.Controllers
 {
+    using Microsoft.AspNet.Identity;
+    using Models;
+    using System.Threading.Tasks;
+    using System.Web.Http;
+
     [RoutePrefix("api/Account")]
     public class AccountController : ApiController
     {
-        private AuthRepository _repo = null;
+        private readonly AuthRepository authRepository = null;
 
-        public AccountController()
+        public AccountController(AuthRepository authRepository)
         {
-            _repo = new AuthRepository();
+            this.authRepository = authRepository;
         }
-
 
         // POST api/Account/Register
         [AllowAnonymous]
         [Route("Register")]
         public async Task<IHttpActionResult> Register(UserModel userModel)
         {
-             if (!ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-             IdentityResult result = await _repo.RegisterUser(userModel);
+            var result = await authRepository.RegisterUser(userModel);
 
-             IHttpActionResult errorResult = GetErrorResult(result);
+            var errorResult = GetErrorResult(result);
 
-             if (errorResult != null)
-             {
-                 return errorResult;
-             }
+            if (errorResult != null)
+            {
+                return errorResult;
+            }
 
-             return Ok();
+            return Ok();
         }
 
         //public IHttpActionResult Get() {
@@ -57,18 +50,7 @@ namespace AngularJSAuthentication.API.Controllers
         //    };
 
         //    return Ok(result);
-
         //}
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                _repo.Dispose();
-            }
-
-            base.Dispose(disposing);
-        }
 
         private IHttpActionResult GetErrorResult(IdentityResult result)
         {

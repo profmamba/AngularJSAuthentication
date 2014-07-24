@@ -1,106 +1,96 @@
-﻿using AngularJSAuthentication.API.Entities;
-using AngularJSAuthentication.API.Models;
-using Microsoft.AspNet.Identity;
-using Microsoft.AspNet.Identity.EntityFramework;
-using Microsoft.Owin.Security;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Claims;
-using System.Threading.Tasks;
-using System.Web;
-
-namespace AngularJSAuthentication.API
+﻿namespace AngularJSAuthentication.API
 {
+    using AngularJSAuthentication.API.Entities;
+    using AngularJSAuthentication.API.Models;
+    using Microsoft.AspNet.Identity;
+    using MongoDB.Driver.Builders;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Threading.Tasks;
 
-    public class AuthRepository : IDisposable
+    public class AuthRepository
     {
-        private AuthContext _ctx;
+        private readonly IMongoContext mongoContext;
+        private readonly ApplicationUserManager userManager;
 
-        private UserManager<IdentityUser> _userManager;
-
-        public AuthRepository()
+        public AuthRepository(IMongoContext mongoContext, ApplicationUserManager userManager)
         {
-            _ctx = new AuthContext();
-            _userManager = new UserManager<IdentityUser>(new UserStore<IdentityUser>(_ctx));
+            this.mongoContext = mongoContext;
+            this.userManager = userManager;
         }
 
         public async Task<IdentityResult> RegisterUser(UserModel userModel)
         {
-            IdentityUser user = new IdentityUser
+            var user = new User
             {
                 UserName = userModel.UserName
             };
 
-            var result = await _userManager.CreateAsync(user, userModel.Password);
+            var result = await userManager.CreateAsync(user, userModel.Password);
 
             return result;
         }
 
-        public async Task<IdentityUser> FindUser(string userName, string password)
+        public async Task<User> FindUser(string userName, string password)
         {
-            IdentityUser user = await _userManager.FindAsync(userName, password);
+            User user = await userManager.FindAsync(userName, password);
 
             return user;
         }
 
         public Client FindClient(string clientId)
         {
-            var client = _ctx.Clients.Find(clientId);
+            var query = Query<Client>.EQ(c => c.Id, clientId);
+
+            var client = mongoContext.Clients.Find(query).SetLimit(1).FirstOrDefault();
 
             return client;
         }
 
         public async Task<bool> AddRefreshToken(RefreshToken token)
         {
+            var query = Query.And(
+                Query<RefreshToken>.EQ(r => r.Subject, token.Subject),
+                Query<RefreshToken>.EQ(r => r.ClientId, token.ClientId));
 
-           var existingToken = _ctx.RefreshTokens.Where(r => r.Subject == token.Subject && r.ClientId == token.ClientId).SingleOrDefault();
+            var existingToken = mongoContext.RefreshTokens.Find(query).SetLimit(1).SingleOrDefault();
 
-           if (existingToken != null)
-           {
-             var result = await RemoveRefreshToken(existingToken);
-           }
-          
-            _ctx.RefreshTokens.Add(token);
+            if (existingToken != null)
+            {
+                var result = await RemoveRefreshToken(existingToken);
+            }
 
-            return await _ctx.SaveChangesAsync() > 0;
+            mongoContext.RefreshTokens.Insert(token);
+
+            return true;
         }
 
-        public async Task<bool> RemoveRefreshToken(string refreshTokenId)
+        public Task<bool> RemoveRefreshToken(string refreshTokenId)
         {
-           var refreshToken = await _ctx.RefreshTokens.FindAsync(refreshTokenId);
+            var query = Query<RefreshToken>.EQ(r => r.Id, refreshTokenId);
 
-           if (refreshToken != null) {
-               _ctx.RefreshTokens.Remove(refreshToken);
-               return await _ctx.SaveChangesAsync() > 0;
-           }
+            var writeConcernResult = mongoContext.RefreshTokens.Remove(query);
 
-           return false;
+            return Task.FromResult(writeConcernResult.DocumentsAffected == 1);
         }
 
         public async Task<bool> RemoveRefreshToken(RefreshToken refreshToken)
         {
-            _ctx.RefreshTokens.Remove(refreshToken);
-             return await _ctx.SaveChangesAsync() > 0;
+            return await RemoveRefreshToken(refreshToken.Id);
         }
 
-        public async Task<RefreshToken> FindRefreshToken(string refreshTokenId)
+        public Task<RefreshToken> FindRefreshToken(string refreshTokenId)
         {
-            var refreshToken = await _ctx.RefreshTokens.FindAsync(refreshTokenId);
+            var query = Query<RefreshToken>.EQ(r => r.Id, refreshTokenId);
 
-            return refreshToken;
+            var refreshToken = mongoContext.RefreshTokens.Find(query).SetLimit(1).FirstOrDefault();
+
+            return Task.FromResult(refreshToken);
         }
 
         public List<RefreshToken> GetAllRefreshTokens()
         {
-             return  _ctx.RefreshTokens.ToList();
-        }
-
-        public void Dispose()
-        {
-            _ctx.Dispose();
-            _userManager.Dispose();
-
+            return mongoContext.RefreshTokens.FindAll().ToList();
         }
     }
 }

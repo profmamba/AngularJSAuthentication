@@ -1,27 +1,25 @@
-﻿using Newtonsoft.Json.Serialization;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http.Formatting;
-using System.Web.Http;
-
-namespace AngularJSAuthentication.API
+﻿namespace AngularJSAuthentication.API
 {
+    using Newtonsoft.Json.Serialization;
+    using System.Linq;
+    using System.Net.Http.Formatting;
+    using System.Web.Http;
+
     public static class WebApiConfig
     {
-        public static void Register(HttpConfiguration config)
+        public static void Register(HttpConfiguration configuration)
         {
-
             // Web API routes
-            config.MapHttpAttributeRoutes();
+            configuration.MapHttpAttributeRoutes();
 
-            config.Routes.MapHttpRoute(
+            configuration.Routes.MapHttpRoute(
                 name: "DefaultApi",
                 routeTemplate: "api/{controller}/{id}",
                 defaults: new { id = RouteParameter.Optional }
             );
 
-            var jsonFormatter = config.Formatters.OfType<JsonMediaTypeFormatter>().First();
+            var jsonFormatter = configuration.Formatters.OfType<JsonMediaTypeFormatter>().First();
+
             jsonFormatter.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
         }
     }
