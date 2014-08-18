@@ -38,8 +38,8 @@ app.config(function ($routeProvider) {
 });
 
 app.constant('ngAuthSettings', {
-    //apiServiceBaseUri: 'http://localhost:26264/',
-    apiServiceBaseUri: 'http://ngauthenticationapi.azurewebsites.net/',
+    apiServiceBaseUri: 'http://localhost:26264/',
+    //apiServiceBaseUri: 'http://ngauthenticationapi.azurewebsites.net/',
     clientId: 'ngAuthApp'
 });
 

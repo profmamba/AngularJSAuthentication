@@ -125,8 +125,8 @@ namespace AngularJSAuthentication.API
                         ApplicationType = Models.ApplicationTypes.JavaScript,
                         Active = true,
                         RefreshTokenLifeTime = 7200,
-                        //AllowedOrigin = "http://localhost:32150",
-                        AllowedOrigin = "http://ngauthenticationweb.azurewebsites.net"
+                        AllowedOrigin = "http://localhost:32150",
+                        //AllowedOrigin = "http://ngauthenticationweb.azurewebsites.net"
                     });
 
                 mongoContext.Clients.Insert(new Client
